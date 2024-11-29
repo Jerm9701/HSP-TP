@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <cstdlib> 
+#include <iostream>
 
 __global__ void cudaMatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
     int row = blockIdx.y * blockDim.y + threadIdx.y;
@@ -67,8 +69,8 @@ void MatrixMult(float *M1, float *M2, float *Mout, int n){
     }    
 }
 
-int GPU(){
-    const int n = 4; // Number of rows
+int GPU(int n){
+    //const int n = 10000; // Number of rows
     //const int p = 3; // Number of columns
     const int matrixSize = n * n * sizeof(float);
     //const int matrixSize = n * p * sizeof(float);
@@ -86,10 +88,10 @@ int GPU(){
 
     printf("Matrix M1:\n");
     //MatrixPrint(M1, n, p);
-    MatrixPrint(M1, n, n);
+    //MatrixPrint(M1, n, n);
     printf("\nMatrix M2:\n");
     //MatrixPrint(M2, n, p);
-    MatrixPrint(M2, n, n);
+    //MatrixPrint(M2, n, n);
 
     // Device matrices
     float *d_M1, *d_M2, *d_Mout;
@@ -116,7 +118,7 @@ int GPU(){
 
     printf("\nMatrix Mout (M1 + M2):\n");
     //MatrixPrint(Mout, n, p);
-    MatrixPrint(Mout, n, n);
+    //MatrixPrint(Mout, n, n);
 
     // Free device memory
     cudaFree(d_M1);
@@ -132,8 +134,8 @@ int GPU(){
 
 }
 
-int CPU(){
-    const int n = 4; // Number of rows
+int CPU(int n){
+    //const int n = 1000; // Number of rows
     const int p = 3; // Number of columns
     const int matrixSize = n * n * sizeof(float);
     float *M1 = (float*)malloc(matrixSize);
@@ -144,19 +146,33 @@ int CPU(){
     MatrixInit(Mout,n,n);
 
     printf("Matrix M1:\n");
-    MatrixPrint(M1, n, n);
+    //MatrixPrint(M1, n, n);
 
     printf("\nMatrix M2:\n");
-    MatrixPrint(M2, n, n);
+    //MatrixPrint(M2, n, n);
 
     MatrixMult(M1,M2,Mout,n);
     printf("\nMatrix Mout (M1 * M2):\n");
-    MatrixPrint(Mout, n, n);
+    //MatrixPrint(Mout, n, n);
     return 0;
 }
 
 
-int main() {
-    GPU();
-    //CPU();
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "n1 = GPU matrix size, n2 = CPU\n";
+        return 1;
+    }
+    int n1 = atoi(argv[1]);
+    time_t begin_GPU = time(NULL);
+    GPU(n1);
+    time_t end_GPU = time(NULL);
+    unsigned long secs_GPU = (unsigned long) difftime( end_GPU, begin_GPU );
+    printf("GPU_time for n=%d =\t %lu sec\n",n1,secs_GPU);
+    time_t begin_CPU = time(NULL);
+    int n2= atoi(argv[2]);
+    CPU(n2);
+    time_t end_CPU = time(NULL);
+    unsigned long secs_CPU = (unsigned long) difftime( end_CPU, begin_CPU );
+    printf("CPU_time for n=%d =\t %lu sec\n",n2,secs_CPU);
 }
