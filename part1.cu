@@ -40,26 +40,37 @@ void MatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
     }
 }
 
-int main() {
+void MatrixMult(float *M1, float *M2, float *Mout, int n){
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            Mout[i * n + j]=0;
+            for (int k = 0; k<n;k++){
+                Mout[i * n + j] +=  M1[i*n + k]*M2[k*n + j];
+            }
+            
+        }
+    }    
+}
+
+int GPU(){
     const int n = 4; // Number of rows
     const int p = 3; // Number of columns
     const int matrixSize = n * p * sizeof(float);
 
     // Host matrices
-    float *h_M1 = (float*)malloc(matrixSize);
-    float *h_M2 = (float*)malloc(matrixSize);
-    float *h_Mout = (float*)malloc(matrixSize);
+    float *M1 = (float*)malloc(matrixSize);
+    float *M2 = (float*)malloc(matrixSize);
+    float *Mout = (float*)malloc(matrixSize);
 
     // Initialize matrices on the host
-    srand(time(0));
-    MatrixInit(h_M1, n, p);
-    MatrixInit(h_M2, n, p);
+    MatrixInit(M1, n, p);
+    MatrixInit(M2, n, p);
 
     printf("Matrix M1:\n");
-    MatrixPrint(h_M1, n, p);
+    MatrixPrint(M1, n, p);
 
     printf("\nMatrix M2:\n");
-    MatrixPrint(h_M2, n, p);
+    MatrixPrint(M2, n, p);
 
     // Device matrices
     float *d_M1, *d_M2, *d_Mout;
@@ -68,8 +79,8 @@ int main() {
     cudaMalloc((void**)&d_Mout, matrixSize);
 
     // Copy matrices from host to device
-    cudaMemcpy(d_M1, h_M1, matrixSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_M2, h_M2, matrixSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_M1, M1, matrixSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_M2, M2, matrixSize, cudaMemcpyHostToDevice);
 
     // Define thread and block dimensions
     dim3 blockDim(n*p, n*p);
@@ -81,10 +92,10 @@ int main() {
     cudaDeviceSynchronize();
 
     // Copy the result back to the host
-    cudaMemcpy(h_Mout, d_Mout, matrixSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(Mout, d_Mout, matrixSize, cudaMemcpyDeviceToHost);
 
     printf("\nMatrix Mout (M1 + M2):\n");
-    MatrixPrint(h_Mout, n, p);
+    MatrixPrint(Mout, n, p);
 
     // Free device memory
     cudaFree(d_M1);
@@ -92,9 +103,39 @@ int main() {
     cudaFree(d_Mout);
 
     // Free host memory
-    free(h_M1);
-    free(h_M2);
-    free(h_Mout);
+    free(M1);
+    free(M2);
+    free(Mout);
 
+    return 0;    
+
+}
+
+int CPU(){
+    const int n = 4; // Number of rows
+    const int p = 3; // Number of columns
+    const int matrixSize = n * n * sizeof(float);
+    float *M1 = (float*)malloc(matrixSize);
+    float *M2 = (float*)malloc(matrixSize);
+    float *Mout = (float*)malloc(matrixSize);
+    MatrixInit(M1, n, n);
+    MatrixInit(M2, n, n);
+    MatrixInit(Mout,n,n);
+
+    printf("Matrix M1:\n");
+    MatrixPrint(M1, n, n);
+
+    printf("\nMatrix M2:\n");
+    MatrixPrint(M2, n, n);
+
+    MatrixMult(M1,M2,Mout,n);
+    printf("\nMatrix Mout (M1 * M2):\n");
+    MatrixPrint(Mout, n, n);
     return 0;
+}
+
+
+int main() {
+    //GPU();
+    CPU();
 }
