@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 __global__ void cudaMatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
     int row = blockIdx.y * blockDim.y + threadIdx.y;
@@ -11,6 +12,20 @@ __global__ void cudaMatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
             Mout[idx] =  M1[idx] + M2[idx];
         }
     }
+}
+__global__ void cudaMatrixMult(float *M1, float *M2, float *Mout, int n){
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx = row * n + col;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            Mout[i * n + j]=0;
+            for (int k = 0; k<n;k++){
+                Mout[i * n + j] +=  M1[i*n + k]*M2[k*n + j];
+            }
+            
+        }
+    }    
 }
 
 void MatrixInit(float* M, int n, int p) {
@@ -54,8 +69,9 @@ void MatrixMult(float *M1, float *M2, float *Mout, int n){
 
 int GPU(){
     const int n = 4; // Number of rows
-    const int p = 3; // Number of columns
-    const int matrixSize = n * p * sizeof(float);
+    //const int p = 3; // Number of columns
+    const int matrixSize = n * n * sizeof(float);
+    //const int matrixSize = n * p * sizeof(float);
 
     // Host matrices
     float *M1 = (float*)malloc(matrixSize);
@@ -63,14 +79,17 @@ int GPU(){
     float *Mout = (float*)malloc(matrixSize);
 
     // Initialize matrices on the host
-    MatrixInit(M1, n, p);
-    MatrixInit(M2, n, p);
+    //MatrixInit(M1, n, p);
+    //MatrixInit(M2, n, p);
+    MatrixInit(M1, n, n);
+    MatrixInit(M2, n, n);
 
     printf("Matrix M1:\n");
-    MatrixPrint(M1, n, p);
-
+    //MatrixPrint(M1, n, p);
+    MatrixPrint(M1, n, n);
     printf("\nMatrix M2:\n");
-    MatrixPrint(M2, n, p);
+    //MatrixPrint(M2, n, p);
+    MatrixPrint(M2, n, n);
 
     // Device matrices
     float *d_M1, *d_M2, *d_Mout;
@@ -83,11 +102,12 @@ int GPU(){
     cudaMemcpy(d_M2, M2, matrixSize, cudaMemcpyHostToDevice);
 
     // Define thread and block dimensions
-    dim3 blockDim(n*p, n*p);
-    dim3 gridDim((p + blockDim.x - 1) / blockDim.x, (n + blockDim.y - 1) / blockDim.y);
+    //dim3 blockDim(n*p, n*p);
+    dim3 blockDim(n*n, n*n);
+    dim3 gridDim((n + blockDim.x - 1) / blockDim.x, (n + blockDim.y - 1) / blockDim.y);
 
     // Launch the kernel
-    cudaMatrixAdd<<<gridDim, blockDim>>>(d_M1, d_M2, d_Mout, n, p);
+    cudaMatrixMult<<<gridDim, blockDim>>>(d_M1, d_M2, d_Mout, n);
     //here gridDim = 1
     cudaDeviceSynchronize();
 
@@ -95,7 +115,8 @@ int GPU(){
     cudaMemcpy(Mout, d_Mout, matrixSize, cudaMemcpyDeviceToHost);
 
     printf("\nMatrix Mout (M1 + M2):\n");
-    MatrixPrint(Mout, n, p);
+    //MatrixPrint(Mout, n, p);
+    MatrixPrint(Mout, n, n);
 
     // Free device memory
     cudaFree(d_M1);
@@ -136,6 +157,6 @@ int CPU(){
 
 
 int main() {
-    //GPU();
-    CPU();
+    GPU();
+    //CPU();
 }
