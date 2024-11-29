@@ -1,6 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+
+__global__ void cudaMatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < p; ++j) {
+            Mout[i * p + j] =  M1[i*p + j] + M2[i*p + j];
+        }
+    }
+}
+
 void MatrixInit(float* M, int n, int p) {
     // Create matrix on CPU with random values in {-1,1}
     for (int i = 0; i < n; ++i) {
@@ -20,13 +30,12 @@ void MatrixPrint(float* M, int n, int p){
     }
 }
 
-float * MatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
+void MatrixAdd(float *M1, float *M2, float *Mout, int n, int p){
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < p; ++j) {
             Mout[i * p + j] =  M1[i*p + j] + M2[i*p + j];
         }
     }
-    return Mout;
 }
 
 int main(){
