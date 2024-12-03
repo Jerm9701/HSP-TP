@@ -29,6 +29,34 @@ __global__ void cudaMatrixMult(float *M1, float *M2, float *Mout, int n){
         }
     }    
 }
+__global__ void Conv2D(float* M_data, float* C1_kernel, float* C1_mat_data, int img_w, int nb_filter, int filter_sz){
+	int i = blockDim.x * blockIdx.x + threadIdx.x;
+	int j = blockDim.y * blockIdx.y + threadIdx.y;
+	int radius = filter_sz / 2;
+
+	if((i < img_w) && (j < img_w))
+	{
+		float sum = 0;
+		int k;
+
+		int i_top_left = i-radius;
+		int j_top_left = j-radius;
+
+		for(k=0;k<filter_sz*filter_sz;k++)
+		{
+			int _i = i_top_left + (k/filter_sz); 
+			int _j = j_top_left + (k%filter_sz); 
+
+			if( (_i >= 0) && (_i < img_w) && (_j >= 0) && (_j < img_w))
+			{
+				int idx = _i * img_w + _j;
+				sum += C1_kernel[k]*M_data[idx];
+			}
+		}
+
+		C1_mat_data[i*img_w+j] = sum;
+	}
+}
 
 void initializeMatrix_3D(float* M3, int n, int p, int d) {
     for (int l = 0; l < n; ++l) {
@@ -192,6 +220,23 @@ int p2(){
     initializeMatrix_3D(C1_mat_data,mask_depth,C1_data,C1_data);
     initializeMatrix_3D(S1_data,mask_depth,S1_sz,S1_sz);
     rd_initializeMatrix_3D(C1_mat_kernel,mask_depth,C1_kernel,C1_kernel);
+
+    // Device matrices
+    float *d_M_data, *d_C1_mat_data, *d_S1_data, *d_C1_mat_kernel;
+    cudaMalloc((void**)&d_M_data, rd_sz*rd_sz*sizeof(float));
+    cudaMalloc((void**)&d_C1_mat_data, mask_depth*C1_data*C1_data*sizeof(float));
+    cudaMalloc((void**)&d_S1_data, mask_depth*S1_sz*S1_sz*sizeof(float));
+    cudaMalloc((void**)&d_C1_mat_kernel, mask_depth*C1_kernel*C1_kernel*sizeof(float));
+    
+    cudaMemcpy(d_M_data, M_data, rd_sz*rd_sz*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_C1_mat_kernel, C1_mat_kernel, mask_depth*C1_kernel*C1_kernel*sizeof(float), cudaMemcpyHostToDevice);
+
+    dim3 blockDim(rd_sz*rd_sz, rd_sz*rd_sz);
+    dim3 gridDim((rd_sz + blockDim.x - 1) / blockDim.x, (rd_sz + blockDim.y - 1) / blockDim.y);
+
+    Conv2D<<<gridDim,blockDim>>>(M_data,C1_mat_kernel,C1_mat_data,rd_sz,mask_depth,C1_kernel);
+
+
 
 }
 
