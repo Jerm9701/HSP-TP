@@ -30,6 +30,15 @@ __global__ void cudaMatrixMult(float *M1, float *M2, float *Mout, int n){
     }    
 }
 
+void initializeMatrix_3D(float* M3, int n, int p, int d) {
+    for (int l = 0; l < n; ++l) {
+        for (int i = 0; i < p; ++i) {
+            for (int k = 0; k<d;k++){
+                M3[l*n+i * p + k]=0;
+            }
+        }
+    }
+}
 void MatrixInit(float* M, int n, int p) {
     // Create matrix on CPU with random values in {-1,1}
     for (int i = 0; i < n; ++i) {
@@ -69,7 +78,7 @@ void MatrixMult(float *M1, float *M2, float *Mout, int n){
     }    
 }
 
-int GPU(int n){
+int GPU_p1(int n){
     //const int n = 10000; // Number of rows
     //const int p = 3; // Number of columns
     const int matrixSize = n * n * sizeof(float);
@@ -134,7 +143,7 @@ int GPU(int n){
 
 }
 
-int CPU(int n){
+int CPU_p1(int n){
     //const int n = 1000; // Number of rows
     const int p = 3; // Number of columns
     const int matrixSize = n * n * sizeof(float);
@@ -157,22 +166,44 @@ int CPU(int n){
     return 0;
 }
 
+int p2(){
+    return 0;
+    int rd_sz = 32;
+    int mask_depth = 6;
+    int C1_data = 28;
+    int S1_sz = 14;
+    int C1_kernel = 5;
+    float *M_data = (float*)malloc(rd_sz*rd_sz*sizeof(float));
+    float *C1_mat_data = (float*)malloc(mask_depth*C1_data*C1_data*sizeof(float));
+    float *S1_data = (float*)malloc(mask_depth*S1_sz*S1_sz*sizeof(float));
+    float *C1_mat_kernel = (float*)malloc(mask_depth*C1_kernel*C1_kernel*sizeof(float));
+    MatrixInit(M_data,rd_sz,rd_sz);
+    initializeMatrix_3D(C1_mat_data,mask_depth,C1_data,C1_data);
+    initializeMatrix_3D(S1_data,mask_depth,S1_sz,S1_sz);
+    initializeMatrix_3D(C1_mat_kernel,mask_depth,C1_kernel,C1_kernel);
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "n1 = GPU matrix size, n2 = CPU\n";
-        return 1;
-    }
-    int n1 = atoi(argv[1]);
-    time_t begin_GPU = time(NULL);
-    GPU(n1);
-    time_t end_GPU = time(NULL);
-    unsigned long secs_GPU = (unsigned long) difftime( end_GPU, begin_GPU );
-    printf("GPU_time for n=%d =\t %lu sec\n",n1,secs_GPU);
-    time_t begin_CPU = time(NULL);
-    int n2= atoi(argv[2]);
-    CPU(n2);
-    time_t end_CPU = time(NULL);
-    unsigned long secs_CPU = (unsigned long) difftime( end_CPU, begin_CPU );
-    printf("CPU_time for n=%d =\t %lu sec\n",n2,secs_CPU);
+}
+
+// int main(int argc, char* argv[]) {
+//     if (argc < 4) {
+//         std::cerr << "n1 = GPU matrix size, n2 = CPU\n";
+//         return 1;
+//     }
+//     int n1 = atoi(argv[1]);
+//     time_t begin_GPU = time(NULL);
+//     GPU(n1);
+//     time_t end_GPU = time(NULL);
+//     unsigned long secs_GPU = (unsigned long) difftime( end_GPU, begin_GPU );
+//     printf("GPU_time for n=%d =\t %lu sec\n",n1,secs_GPU);
+//     time_t begin_CPU = time(NULL);
+//     int n2= atoi(argv[2]);
+//     CPU(n2);
+//     time_t end_CPU = time(NULL);
+//     unsigned long secs_CPU = (unsigned long) difftime( end_CPU, begin_CPU );
+//     printf("CPU_time for n=%d =\t %lu sec\n",n2,secs_CPU);
+// }
+
+int main(){
+    p2();
+    return 0;
 }
