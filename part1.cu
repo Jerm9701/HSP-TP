@@ -39,12 +39,23 @@ void initializeMatrix_3D(float* M3, int n, int p, int d) {
         }
     }
 }
+void rd_initializeMatrix_3D(float* M3, int n, int p, int d) {
+    for (int l = 0; l < n; ++l) {
+        for (int i = 0; i < p; ++i) {
+            for (int k = 0; k<d;k++){
+                float randomValue = static_cast<float>(rand()) / RAND_MAX;
+                M3[l*n+i * p + k]=randomValue;
+            }
+        }
+    }
+}
 void MatrixInit(float* M, int n, int p) {
-    // Create matrix on CPU with random values in {-1,1}
+    // Create matrix on CPU with random values in [-1,1]
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < p; ++j) {
             float randomValue = static_cast<float>(rand()) / RAND_MAX;
-            M[i * p + j] = randomValue *2 -1;
+            //M[i * p + j] = randomValue *2 -1; [-1,1]
+            M[i * p + j] = randomValue; //[0,1]
         }
     }
 }
@@ -180,7 +191,7 @@ int p2(){
     MatrixInit(M_data,rd_sz,rd_sz);
     initializeMatrix_3D(C1_mat_data,mask_depth,C1_data,C1_data);
     initializeMatrix_3D(S1_data,mask_depth,S1_sz,S1_sz);
-    initializeMatrix_3D(C1_mat_kernel,mask_depth,C1_kernel,C1_kernel);
+    rd_initializeMatrix_3D(C1_mat_kernel,mask_depth,C1_kernel,C1_kernel);
 
 }
 
