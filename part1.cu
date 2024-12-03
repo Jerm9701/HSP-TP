@@ -29,7 +29,7 @@ __global__ void cudaMatrixMult(float *M1, float *M2, float *Mout, int n){
         }
     }    
 }
-__global__ void Conv2D(float* M_data, float* C1_kernel, float* C1_mat_data, int img_w, int nb_filter, int filter_sz){
+__global__ void Conv2D(float* M_data, float* C1_kernel, float* C1_mat, int img_w, int nb_filter, int filter_sz){
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	int j = blockDim.y * blockIdx.y + threadIdx.y;
 	int radius = filter_sz / 2;
@@ -54,9 +54,32 @@ __global__ void Conv2D(float* M_data, float* C1_kernel, float* C1_mat_data, int 
 			}
 		}
 
-		C1_mat_data[i*img_w+j] = sum;
+		C1_mat[i*img_w+j] = sum;
 	}
 }
+
+// __global__ void Batch_norm(float* C1_mat, float* S1_data, int nb_filers, int filter_sz, int S1_sz){
+// 	int i = blockDim.x * blockIdx.x + threadIdx.x;
+// 	int j = blockDim.y * blockIdx.y + threadIdx.y;
+// 	if((i < img_w) && (j < img_w))
+// 	{
+// 		float sum = 0;
+// 		int k;
+// 		for(k=0;k<filter_sz*filter_sz;k++)
+// 		{
+// 			int _i = i_top_left + (k/filter_sz); 
+// 			int _j = j_top_left + (k%filter_sz); 
+
+// 			if( (_i >= 0) && (_i < img_w) && (_j >= 0) && (_j < img_w))
+// 			{
+// 				int idx = _i * img_w + _j;
+// 				sum += C1_kernel[k]*M_data[idx];
+// 			}
+// 		}
+
+// 		C1_mat[i*img_w+j] = sum;
+// 	}
+// }
 
 void initializeMatrix_3D(float* M3, int n, int p, int d) {
     for (int l = 0; l < n; ++l) {
@@ -77,6 +100,7 @@ void rd_initializeMatrix_3D(float* M3, int n, int p, int d) {
         }
     }
 }
+
 void MatrixInit(float* M, int n, int p) {
     // Create matrix on CPU with random values in [-1,1]
     for (int i = 0; i < n; ++i) {
@@ -152,8 +176,7 @@ int GPU_p1(int n){
     cudaMemcpy(d_M2, M2, matrixSize, cudaMemcpyHostToDevice);
 
     // Define thread and block dimensions
-    //dim3 blockDim(n*p, n*p);
-    dim3 blockDim(n*n, n*n);
+    dim3 blockDim(4, 4);
     dim3 gridDim((n + blockDim.x - 1) / blockDim.x, (n + blockDim.y - 1) / blockDim.y);
 
     // Launch the kernel
@@ -206,37 +229,53 @@ int CPU_p1(int n){
 }
 
 int p2(){
-    return 0;
-    int rd_sz = 32;
-    int mask_depth = 6;
-    int C1_data = 28;
+    int img_w = 32;
+    int nb_filers = 6;
+    int C1_sz = 28;
     int S1_sz = 14;
     int C1_kernel = 5;
-    float *M_data = (float*)malloc(rd_sz*rd_sz*sizeof(float));
-    float *C1_mat_data = (float*)malloc(mask_depth*C1_data*C1_data*sizeof(float));
-    float *S1_data = (float*)malloc(mask_depth*S1_sz*S1_sz*sizeof(float));
-    float *C1_mat_kernel = (float*)malloc(mask_depth*C1_kernel*C1_kernel*sizeof(float));
-    MatrixInit(M_data,rd_sz,rd_sz);
-    initializeMatrix_3D(C1_mat_data,mask_depth,C1_data,C1_data);
-    initializeMatrix_3D(S1_data,mask_depth,S1_sz,S1_sz);
-    rd_initializeMatrix_3D(C1_mat_kernel,mask_depth,C1_kernel,C1_kernel);
+    float *M_data = (float*)malloc(img_w*img_w*sizeof(float));
+    float *C1_mat = (float*)malloc(nb_filers*C1_sz*C1_sz*sizeof(float));
+    float *S1_data = (float*)malloc(nb_filers*S1_sz*S1_sz*sizeof(float));
+    float *C1_mat_kernel = (float*)malloc(nb_filers*C1_kernel*C1_kernel*sizeof(float));
+    MatrixInit(M_data,img_w,img_w);
+    initializeMatrix_3D(C1_mat,nb_filers,C1_sz,C1_sz);
+    initializeMatrix_3D(S1_data,nb_filers,S1_sz,S1_sz);
+    rd_initializeMatrix_3D(C1_mat_kernel,nb_filers,C1_kernel,C1_kernel);
 
     // Device matrices
-    float *d_M_data, *d_C1_mat_data, *d_S1_data, *d_C1_mat_kernel;
-    cudaMalloc((void**)&d_M_data, rd_sz*rd_sz*sizeof(float));
-    cudaMalloc((void**)&d_C1_mat_data, mask_depth*C1_data*C1_data*sizeof(float));
-    cudaMalloc((void**)&d_S1_data, mask_depth*S1_sz*S1_sz*sizeof(float));
-    cudaMalloc((void**)&d_C1_mat_kernel, mask_depth*C1_kernel*C1_kernel*sizeof(float));
+    float *d_M_data, *d_C1_mat, *d_S1_data, *d_C1_mat_kernel;
+    cudaMalloc((void**)&d_M_data, img_w*img_w*sizeof(float));
+    cudaMalloc((void**)&d_C1_mat, nb_filers*C1_sz*C1_sz*sizeof(float));
+    cudaMalloc((void**)&d_S1_data, nb_filers*S1_sz*S1_sz*sizeof(float));
+    cudaMalloc((void**)&d_C1_mat_kernel, nb_filers*C1_kernel*C1_kernel*sizeof(float));
     
-    cudaMemcpy(d_M_data, M_data, rd_sz*rd_sz*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_C1_mat_kernel, C1_mat_kernel, mask_depth*C1_kernel*C1_kernel*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_M_data, M_data, img_w*img_w*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_C1_mat_kernel, C1_mat_kernel, nb_filers*C1_kernel*C1_kernel*sizeof(float), cudaMemcpyHostToDevice);
 
-    dim3 blockDim(rd_sz*rd_sz, rd_sz*rd_sz);
-    dim3 gridDim((rd_sz + blockDim.x - 1) / blockDim.x, (rd_sz + blockDim.y - 1) / blockDim.y);
+    dim3 blockDim(4,4);
+    dim3 gridDim((img_w + blockDim.x - 1) / blockDim.x, (img_w + blockDim.y - 1) / blockDim.y);
 
-    Conv2D<<<gridDim,blockDim>>>(M_data,C1_mat_kernel,C1_mat_data,rd_sz,mask_depth,C1_kernel);
+    Conv2D<<<gridDim,blockDim>>>(d_M_data,d_C1_mat_kernel,d_C1_mat,img_w,nb_filers,C1_kernel);
+    cudaMemcpy(C1_mat, d_C1_mat, nb_filers*C1_sz*C1_sz*sizeof(float),cudaMemcpyDeviceToHost);
+    printf("random init matrix 28x28\n");
+    MatrixPrint(M_data,img_w-8,img_w-8);
+    printf("convolve matrix\n");
+    MatrixPrint(C1_mat_kernel,C1_kernel,C1_kernel);
+    printf("test convolved matrix \n");
+    for (int i = 0; i < C1_sz-8; ++i) {
+        for (int j = 0; j < C1_sz-8; ++j) {
+            printf("%.2f\t",C1_mat[2*C1_sz+i * C1_sz + j]);
+        }
+        printf("\n");
+    }
+    // Free device memory
+    cudaFree(d_M_data);
+    cudaFree(d_C1_mat);
+    cudaFree(d_S1_data);
+    cudaFree(d_C1_mat_kernel);
 
-
+    return 0;
 
 }
 
